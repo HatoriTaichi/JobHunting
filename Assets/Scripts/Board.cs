@@ -11,7 +11,11 @@ public class Board : MonoBehaviour
     // スコアテキスト
     [SerializeField]
     private TextMeshProUGUI score_text;
+    // エフェクト
+    [SerializeField]
+    private ParticleSystem effect;
 
+    private AudioSource clear_se;    // オーディオ
     private int height = 30, width = 10, header = 11;    // ボードの高さ,ボードの幅,ボードの高さ調整用数値
     private Transform[,] grid;    // 2次元配列の作成
     private int score = 0;  // スコア
@@ -19,6 +23,9 @@ public class Board : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        // オーディオソースの取得
+        clear_se = GetComponent<AudioSource>();
+
         // テキスト表示
         score_text.text = "Score : " + score;
 
@@ -140,12 +147,24 @@ public class Board : MonoBehaviour
     // 消去
     void ClearRow(int y)
     {
+        bool is_onece = true;   // Y軸につき一回だけ
+
         // 横幅分のループ
         for (int x =0; x < width; x++) 
         {
             // 生成されていたら
             if (grid[x, y] != null)
             {
+                // 最初なら
+                if (is_onece)
+                {
+                    Instantiate(effect);
+                    effect.transform.position = new Vector3(4.25f, grid[x, y].transform.position.y, -1.0f);
+                    effect.Play();
+                    clear_se.Play();
+                    is_onece = false;
+                }
+
                 // 破棄
                 Destroy(grid[x, y].gameObject);
             }

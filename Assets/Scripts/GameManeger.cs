@@ -14,12 +14,19 @@ public class GameManeger : MonoBehaviour
     // 次のミノパネル
     [SerializeField]
     private GameObject next_panel;
+    // オーディオクリップ
+    [SerializeField]
+    private AudioClip restart_se;
+    [SerializeField]
+    private AudioClip hold_se;
+    [SerializeField]
+    private AudioClip move_se;
     // 落下スピード
     [SerializeField]
     private float down_time;
     // インターバル
     [SerializeField]
-    private float next_key_left_right_interval, next_key_rotate_interval;
+    private float move_interval, rotate_interval;
     // 感度
     [SerializeField]
     private float touch_sensitivity;
@@ -27,6 +34,7 @@ public class GameManeger : MonoBehaviour
     [SerializeField]
     private float tap_time_max;
 
+    private AudioSource game_se;    // オーディオ
     private Transform start_trans;  // 初期データ
     private Spawner spawner;    // スポナー
     private Board board;    // ボード
@@ -35,7 +43,7 @@ public class GameManeger : MonoBehaviour
     private Block hold_block;    // ホールドブロック格納
     private float current_time = 0.0f;  // タイマー
     private float tap_time = 0.0f;
-    private float next_key_left_right_timer, next_key_rotate_timer;     // 入力受付タイマー
+    private float move_timer, rotate_timer;     // 入力受付タイマー
     private bool is_game_over = false; // ゲームオーバーか
     private bool is_tap_time_start = false; // タップ時間計測してるか
     private bool is_tap = false;    // タップしてるか
@@ -50,12 +58,13 @@ public class GameManeger : MonoBehaviour
         }
 
         // タイマーの初期化
-        next_key_left_right_timer = Time.time + next_key_left_right_interval;
-        next_key_rotate_timer = Time.time + next_key_rotate_interval;
+        move_timer = Time.time + move_interval;
+        rotate_timer = Time.time + rotate_interval;
 
         // コンポーネント取得
         board = GameObject.FindObjectOfType<Board>();
         spawner = GameObject.FindObjectOfType<Spawner> ();
+        game_se = GetComponent<AudioSource>();
 
         // ブロック生成関数で変数を保存
         if (!active_block)
@@ -98,19 +107,23 @@ public class GameManeger : MonoBehaviour
                 // 移動していたら
                 if (Input.touches[0].phase == TouchPhase.Moved)
                 {
-                    float x; // 感度計算用
+                    float x, y; // 感度計算用
 
                     // 感度を計算
                     x = Input.touches[0].deltaPosition.x * touch_sensitivity;
+                    y = Input.touches[0].deltaPosition.y * touch_sensitivity;
 
                     // 右に移動したら
-                    if (x > 1 && (Time.time > next_key_left_right_timer))
+                    if (x > 1.0f && (Time.time > move_timer))
                     {
                         // 右に動かす
                         active_block.MoveRight();
 
+                        game_se.clip = move_se;
+                        game_se.Play();
+
                         // タイマー更新
-                        next_key_left_right_timer = Time.time + next_key_left_right_interval;
+                        move_timer = Time.time + move_interval;
 
                         // ボードから出てたら
                         if (!board.CheckPosition(active_block))
@@ -120,19 +133,40 @@ public class GameManeger : MonoBehaviour
                         }
                     }
                     // 左に移動したら
-                    else if (x < -1 && (Time.time > next_key_left_right_timer))
+                    else if (x < -1.0f && (Time.time > move_timer))
                     {
                         // 左に動かす
                         active_block.MoveLeft();
 
+                        game_se.clip = move_se;
+                        game_se.Play();
+
                         // タイマー更新
-                        next_key_left_right_timer = Time.time + next_key_left_right_interval;
+                        move_timer = Time.time + move_interval;
 
                         // ボードから出てたら
                         if (!board.CheckPosition(active_block))
                         {
                             // 戻す
                             active_block.MoveRight();
+                        }
+                    }
+                    // 下に移動したら
+                    else if (y < -1.5f)
+                    {
+                        // 落下
+                        active_block.MoveDown();
+
+                        game_se.clip = move_se;
+                        game_se.Play();
+
+                        // タイマー更新
+                        move_timer = Time.time + move_interval;
+
+                        if (!board.CheckPosition(active_block))
+                        {
+                            // 戻す
+                            active_block.MoveUp();
                         }
                     }
                 }
@@ -143,16 +177,13 @@ public class GameManeger : MonoBehaviour
                     is_tap_time_start = true;
                 }
 
-                // 計測していて時間内だったら
+                // 時間内に指を離したら
                 if (is_tap_time_start &&
                     tap_time >= 0.0f &&
-                    tap_time <= tap_time_max)
+                    tap_time <= tap_time_max &&
+                    Input.touches[0].phase == TouchPhase.Ended)
                 {
-                    // 指を離したら
-                    if (Input.touches[0].phase == TouchPhase.Ended)
-                    {
-                        is_tap = true;
-                    }
+                    is_tap = true;
                 }
             }
 
@@ -171,6 +202,7 @@ public class GameManeger : MonoBehaviour
             if (tap_time > tap_time_max)
             {
                 is_tap_time_start = false;
+                is_tap = false;
             }
 
             // タップしたら
@@ -180,7 +212,7 @@ public class GameManeger : MonoBehaviour
                 active_block.RotateRight();
 
                 // タイマー更新
-                next_key_rotate_timer = Time.time + next_key_rotate_interval;
+                rotate_timer = Time.time + rotate_interval;
 
                 // ボードから出てたら
                 if (!board.CheckPosition(active_block))
@@ -202,7 +234,7 @@ public class GameManeger : MonoBehaviour
                 active_block.MoveRight();
 
                 // タイマー更新
-                next_key_left_right_timer = Time.time + next_key_left_right_interval;
+                move_timer = Time.time + move_interval;
 
                 // ボードから出てたら
                 if (!board.CheckPosition(active_block))
@@ -218,7 +250,7 @@ public class GameManeger : MonoBehaviour
                 active_block.MoveLeft();
 
                 // タイマー更新
-                next_key_left_right_timer = Time.time + next_key_left_right_interval;
+                move_timer = Time.time + move_interval;
 
                 // ボードから出てたら
                 if (!board.CheckPosition(active_block))
@@ -234,7 +266,7 @@ public class GameManeger : MonoBehaviour
                 active_block.RotateRight();
 
                 // タイマー更新
-                next_key_rotate_timer = Time.time + next_key_rotate_interval;
+                rotate_timer = Time.time + rotate_interval;
 
                 // ボードから出てたら
                 if (!board.CheckPosition(active_block))
@@ -312,8 +344,8 @@ public class GameManeger : MonoBehaviour
         next_block.transform.localScale *= 2;
 
         // タイマー更新
-        next_key_left_right_timer = Time.time;
-        next_key_rotate_timer = Time.time;
+        move_timer = Time.time;
+        rotate_timer = Time.time;
         board.ClearAllRows();
     }
 
@@ -333,6 +365,9 @@ public class GameManeger : MonoBehaviour
     // ホールド
     public void Hold()
     {
+        game_se.clip = hold_se;
+        game_se.Play();
+
         // ホールドされていたら
         if (hold_block)
         {
@@ -373,13 +408,15 @@ public class GameManeger : MonoBehaviour
         // ホールドミノの調整
         hold_block.transform.position = hold_panel.transform.position;
 
-        next_key_left_right_timer = Time.time;
-        next_key_rotate_timer = Time.time;
+        move_timer = Time.time;
+        rotate_timer = Time.time;
     }
 
     // リプレイ
     public void Replay()
     {
-       SceneManager.LoadScene(0);
+        game_se.clip = restart_se;
+        game_se.Play();
+        SceneManager.LoadScene(0);
     }
 }
